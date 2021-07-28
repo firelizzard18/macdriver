@@ -22,7 +22,10 @@ char *GoObjc_SelectorToString(void *sel) {
 }
 */
 import "C"
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+)
 
 // A Selector represents an Objective-C method selector.
 type Selector interface {
@@ -106,10 +109,46 @@ func simplifyTypeInfo(typeInfo string) string {
 	return string(sti)
 }
 
+const cacheMethodTypeInfo = true
+
+var methodTypeInfoCache = struct {
+	sync.RWMutex
+	entries map[[2]unsafe.Pointer]func() string
+}{
+	entries: map[[2]unsafe.Pointer]func() string{},
+}
+
 // simpleTypeInfoForMethod fetches the type info for the method
 // identified by obj's class and the given selector and returns
 // it in a simplified form produced by the simplifyTypeInfo function.
-func simpleTypeInfoForMethod(obj Object, selector string) string {
-	ti := typeInfoForMethod(obj, selector)
+func simpleTypeInfoForMethod(obj Object, selector string) (info string) {
+	if !cacheMethodTypeInfo {
+		ti := typeInfoForMethod(obj, selector)
+		return simplifyTypeInfo(ti)
+	}
+
+	cls := unsafe.Pointer(getObjectClass(obj).Pointer())
+	sel := selectorWithName(selector)
+	key := [2]unsafe.Pointer{cls, sel}
+
+	methodTypeInfoCache.RLock()
+	fn, ok := methodTypeInfoCache.entries[key]
+	methodTypeInfoCache.RUnlock()
+	if ok {
+		return fn()
+	}
+
+	methodTypeInfoCache.Lock()
+	fn, ok = methodTypeInfoCache.entries[key]
+	if ok {
+		return fn()
+	} else {
+		done := make(chan struct{})
+		defer close(done)
+		methodTypeInfoCache.entries[key] = func() string { <-done; return info }
+	}
+	methodTypeInfoCache.Unlock()
+
+	ti := C.GoString(C.GoObjc_TypeInfoForMethod(cls, sel))
 	return simplifyTypeInfo(ti)
 }

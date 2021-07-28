@@ -30,6 +30,11 @@ void GoObjc_MsgSend_Stret1(void *stretAddr, void *self, void *op, void *arg) {
 	objc_msgSend_stret(stretAddr, self, op, arg);
 }
 
+void * GoObjc_MsgSend_Idret(void *self, void *cmd) {
+	id (*call)(id, SEL) = (void *)&objc_msgSend;
+	return call(self, cmd);
+}
+
 */
 import "C"
 import (
@@ -83,6 +88,11 @@ func sendMsg(obj Object, sendFuncName string, selector string, args ...interface
 	argOffset := 2 // self, op
 
 	typeInfo := simpleTypeInfoForMethod(obj, selector)
+
+	if typeInfo == "@@:" && sendFuncName == "objc_msgSend" {
+		id := C.GoObjc_MsgSend_Idret(unsafe.Pointer(obj.Pointer()), sel)
+		return object{ptr: uintptr(id)}
+	}
 
 	var stretAddr uintptr
 	if len(typeInfo) > 0 && string(typeInfo[0]) == encStructBegin {
