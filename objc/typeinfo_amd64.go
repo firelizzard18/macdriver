@@ -11,45 +11,45 @@ import (
 
 func typeInfoForType(typ reflect.Type) string {
 	if typ.Implements(classInterfaceType) {
-		return encClass
+		return string(encClass)
 	} else if typ.Implements(objectInterfaceType) {
-		return encId
+		return string(encId)
 	} else if typ.Implements(selectorInterfaceType) {
-		return encSelector
+		return string(encSelector)
 	}
 
 	kind := typ.Kind()
 	switch kind {
 	case reflect.Bool:
-		return encBool
+		return string(encBool)
 	case reflect.Int:
-		return encInt
+		return string(encInt)
 	case reflect.Int8:
-		return encChar
+		return string(encChar)
 	case reflect.Int16:
-		return encShort
+		return string(encShort)
 	case reflect.Int32:
-		return encInt
+		return string(encInt)
 	case reflect.Int64:
-		return encULong
+		return string(encULong)
 	case reflect.Uint:
-		return encUInt
+		return string(encUInt)
 	case reflect.Uint8:
-		return encUChar
+		return string(encUChar)
 	case reflect.Uint16:
-		return encUShort
+		return string(encUShort)
 	case reflect.Uint32:
-		return encUInt
+		return string(encUInt)
 	case reflect.Uint64:
-		return encULong
+		return string(encULong)
 	case reflect.Uintptr:
-		return encPtr
+		return string(encPtr)
 	case reflect.Float32:
-		return encFloat
+		return string(encFloat)
 	case reflect.Float64:
-		return encDouble
+		return string(encDouble)
 	case reflect.Ptr:
-		return encPtr
+		return string(encPtr)
 	}
 
 	panic("typeinfo: unhandled/invalid kind " + fmt.Sprintf("%v", kind) + " " + fmt.Sprintf("%v", typ))

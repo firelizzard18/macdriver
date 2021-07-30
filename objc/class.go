@@ -122,7 +122,7 @@ func NewClass(classname string, superclass string) Class {
 	// Register the dealloc method to be able to properly remove the classInfo
 	// reference to our internal pointer.
 	sel := selectorWithName("dealloc")
-	typeInfo := encVoid + encId + encSelector
+	typeInfo := string([]rune{encVoid, encId, encSelector})
 	C.GoObjc_ClassAddMethod(ptr, sel, methodCallTarget(), C.CString(typeInfo))
 
 	lazilyRegisterClassInMap(classname)
@@ -187,7 +187,7 @@ func NewClassFromStruct(value interface{}) Class {
 	// Register the IBOutlet setters.
 	for setterSelector, _ := range setters {
 		sel := selectorWithName(setterSelector)
-		typeInfo := encVoid + encId + encSelector + encId
+		typeInfo := string([]rune{encVoid + encId + encSelector + encId})
 		C.GoObjc_ClassAddMethod(ptr, sel, methodCallTarget(), C.CString(typeInfo))
 	}
 
@@ -195,14 +195,14 @@ func NewClassFromStruct(value interface{}) Class {
 	// if the class has any IBOutlets. (Currently only relevant for the iOS runtime)
 	if len(setters) > 0 {
 		sel := selectorWithName("setValue:forKey:")
-		typeInfo := encVoid + encId + encSelector + encId + encId
+		typeInfo := string([]rune{encVoid + encId + encSelector + encId + encId})
 		C.GoObjc_ClassAddMethod(ptr, sel, methodCallTarget(), C.CString(typeInfo))
 	}
 
 	// Register the dealloc method to be able to properly remove the classInfo
 	// reference to our internal pointer.
 	sel := selectorWithName("dealloc")
-	typeInfo := encVoid + encId + encSelector
+	typeInfo := string([]rune{encVoid + encId + encSelector})
 	C.GoObjc_ClassAddMethod(ptr, sel, methodCallTarget(), C.CString(typeInfo))
 
 	classMap[className] = classInfo{

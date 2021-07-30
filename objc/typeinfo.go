@@ -9,36 +9,36 @@ import (
 )
 
 const (
-	encId          = "@"
-	encClass       = "#"
-	encSelector    = ":"
-	encChar        = "c"
-	encUChar       = "C"
-	encShort       = "s"
-	encUShort      = "S"
-	encInt         = "i"
-	encUInt        = "I"
-	encLong        = "l"
-	encULong       = "L"
-	encLongLong    = "q"
-	encULongLong   = "Q"
-	encFloat       = "f"
-	encDouble      = "d"
-	encDFLD        = "b"
-	encBool        = "B"
-	encVoid        = "v"
-	encUndef       = "?"
-	encPtr         = "^"
-	encCharPtr     = "*"
-	encAtom        = "%"
-	encArrayBegin  = "["
-	encArrayEnd    = "]"
-	encUnionBegin  = "("
-	encUnionEnd    = ")"
-	encStructBegin = "{"
-	encStructEnd   = "}"
-	encVector      = "!"
-	encConst       = "r"
+	encId          = '@'
+	encClass       = '#'
+	encSelector    = ':'
+	encChar        = 'c'
+	encUChar       = 'C'
+	encShort       = 's'
+	encUShort      = 'S'
+	encInt         = 'i'
+	encUInt        = 'I'
+	encLong        = 'l'
+	encULong       = 'L'
+	encLongLong    = 'q'
+	encULongLong   = 'Q'
+	encFloat       = 'f'
+	encDouble      = 'd'
+	encDFLD        = 'b'
+	encBool        = 'B'
+	encVoid        = 'v'
+	encUndef       = '?'
+	encPtr         = '^'
+	encCharPtr     = '*'
+	encAtom        = '%'
+	encArrayBegin  = '['
+	encArrayEnd    = ']'
+	encUnionBegin  = '('
+	encUnionEnd    = ')'
+	encStructBegin = '{'
+	encStructEnd   = '}'
+	encVector      = '!'
+	encConst       = 'r'
 )
 
 var (
@@ -59,7 +59,7 @@ func funcTypeInfo(fn interface{}) string {
 	numOut := typ.NumOut()
 	switch numOut {
 	case 0:
-		typeInfo += encVoid
+		typeInfo += string(encVoid)
 	case 1:
 		typeInfo += typeInfoForType(typ.Out(0))
 	default:
@@ -71,10 +71,63 @@ func funcTypeInfo(fn interface{}) string {
 	}
 
 	typeInfo += typeInfoForType(typ.In(0))
-	typeInfo += encSelector
+	typeInfo += string(encSelector)
 
 	for i := 1; i < typ.NumIn(); i++ {
 		typeInfo += typeInfoForType(typ.In(i))
 	}
 	return typeInfo
+}
+
+type typeInfoIter struct {
+	value string
+	pos   int
+}
+
+func (i *typeInfoIter) Next() (byte, bool) {
+	if i.pos >= len(i.value) {
+		return 0, false
+	}
+
+	v := i.value[i.pos]
+	switch v {
+	case encArrayBegin, encUnionBegin, encStructBegin:
+		i.close()
+	default:
+		i.pos++
+	}
+	return v, true
+}
+
+func (i *typeInfoIter) findNested() {
+	for i.value[i.pos] != '=' {
+		i.pos++
+	}
+	i.pos++
+}
+
+func (i *typeInfoIter) close() {
+	open := i.value[i.pos]
+	i.pos++
+
+	var close byte
+	switch open {
+	case encArrayBegin:
+		close = encArrayEnd
+	case encUnionBegin:
+		close = encUnionEnd
+		i.findNested()
+	case encStructBegin:
+		close = encStructEnd
+		i.findNested()
+	}
+
+	for i.value[i.pos] != close {
+		switch i.value[i.pos] {
+		case encArrayBegin, encUnionBegin, encStructBegin:
+			i.close()
+		default:
+			i.pos++
+		}
+	}
 }

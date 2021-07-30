@@ -80,6 +80,10 @@ func stringFromSelector(sel unsafe.Pointer) string {
 	return C.GoString(C.GoObjc_SelectorToString(sel))
 }
 
+func getTypeInfo(cls, sel unsafe.Pointer) string {
+	return C.GoString(C.GoObjc_TypeInfoForMethod(cls, sel))
+}
+
 // simplifyTypeInfo returns a simplified typeInfo representation
 // with C specifiers and stack information stripped out.
 func simplifyTypeInfo(typeInfo string) string {
@@ -89,7 +93,7 @@ func simplifyTypeInfo(typeInfo string) string {
 		if ti[i] >= '0' && ti[i] <= '9' {
 			continue
 		}
-		if string(ti[i]) == encConst {
+		if ti[i] == encConst {
 			continue
 		}
 		// fixme(mkrautz): What is V? The NSObject release method uses V.
@@ -131,7 +135,7 @@ func simpleTypeInfoForMethod(obj Object, selector string) string {
 		return ti
 	}
 
-	ti = C.GoString(C.GoObjc_TypeInfoForMethod(cls, sel))
+	ti = getTypeInfo(cls, sel)
 	ti = simplifyTypeInfo(ti)
 	methodTypeInfo.e[key] = ti
 	return ti
