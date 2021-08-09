@@ -64,8 +64,8 @@ func NewFunctionCallAddr(addr unsafe.Pointer) *FunctionCall {
 
 // Call calls the FunctionCall's underlying function, returning
 // its return value as an uintptr.
-func (f *FunctionCall) Call() uintptr {
-	return uintptr(C.VariadicCall(unsafe.Pointer(f)))
+func (f *FunctionCall) Call() unsafe.Pointer {
+	return C.VariadicCall(unsafe.Pointer(f))
 }
 
 // CallFloat32 calls the FunctionCall's underlying function, returning

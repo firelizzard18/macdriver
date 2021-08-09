@@ -20,7 +20,7 @@ func monitorReentry(event unsafe.Pointer) {
 	if event == nil {
 		return
 	}
-	obj := objc.ObjectPtr(uintptr(event))
+	obj := objc.ObjectPtr(event)
 	obj.Retain()
 	monitorCh <- NSEvent{obj}
 }

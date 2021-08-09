@@ -7,22 +7,22 @@ package objc
 import "math"
 
 func (obj object) Uint() uint64 {
-	return uint64(obj.ptr)
+	return uint64(obj.uintptr())
 }
 
 func (obj object) Int() int64 {
-	return int64(obj.ptr)
+	return int64(obj.uintptr())
 }
 
 func (obj object) Bool() bool {
-	return obj.ptr == 1
+	return obj.uintptr() == 1
 }
 
 func (obj object) Float() float64 {
 	// fixme(mkrautz): 64-bit only only; also not sure if
 	// this check is even valid for IEEE floats.
-	if obj.ptr&0xffffffff00000000 == 0 {
-		return float64(math.Float32frombits(uint32(obj.ptr)))
+	if obj.uintptr()&0xffffffff00000000 == 0 {
+		return float64(math.Float32frombits(uint32(obj.uintptr())))
 	}
-	return math.Float64frombits(uint64(obj.ptr))
+	return math.Float64frombits(uint64(obj.uintptr()))
 }

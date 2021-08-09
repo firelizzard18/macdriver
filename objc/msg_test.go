@@ -40,7 +40,7 @@ func TestNSStringSendMsg(t *testing.T) {
 		for _, v := range cases {
 			t.Run("", func(t *testing.T) {
 				o := objctest.NSStringWith(v)
-				u := ObjectPtr(uintptr(o)).Send("UTF8String").CString()
+				u := ObjectPtr(o).Send("UTF8String").CString()
 
 				if v != u {
 					t.Fatalf("expected %q, got %q", v, u)
@@ -123,7 +123,7 @@ func TestNSNumberSendMsg(t *testing.T) {
 
 			v := reflect.ValueOf(c.value())
 			ptr := numWith.Call([]reflect.Value{v})[0]
-			ret := ObjectPtr(ptr.Pointer()).Send(selValue(c))
+			ret := ObjectPtr(unsafe.Pointer(ptr.Pointer())).Send(selValue(c))
 			u := obj2go.Call([]reflect.Value{reflect.ValueOf(ret)})[0]
 
 			u = u.Convert(v.Type())

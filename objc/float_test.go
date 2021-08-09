@@ -81,7 +81,7 @@ func TestFloat64RetGoObject(t *testing.T) {
 	RegisterClass(c)
 
 	ft := GetClass("FloatTester").Send("alloc").Send("init")
-	goFt := reflect.NewAt(reflect.TypeOf(FloatTester{}), unsafe.Pointer(object{ptr: ft.Pointer()}.internalPointer())).Interface().(*FloatTester)
+	goFt := reflect.NewAt(reflect.TypeOf(FloatTester{}), unsafe.Pointer(objectPtr(ft.Pointer()).internalPointer())).Interface().(*FloatTester)
 
 	goAnswer64 := goFt.Float64Returner()
 	objcAnswer64 := ft.Send("float64Returner").Float()

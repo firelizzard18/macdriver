@@ -66,7 +66,7 @@ func unpackStruct(val reflect.Value) []uintptr {
 func sendMsg(obj Object, sendFunc variadic.Function, selector string, args ...interface{}) Object {
 	// Keep ObjC semantics: messages can be sent to nil objects,
 	// but the response is nil.
-	if obj.Pointer() == 0 {
+	if obj.Pointer() == nil {
 		return obj
 	}
 
@@ -82,13 +82,13 @@ func sendMsg(obj Object, sendFunc variadic.Function, selector string, args ...in
 
 	typeInfo := simpleTypeInfoForMethod(obj, selector)
 
-	var stretAddr uintptr
+	var stretAddr unsafe.Pointer
 	if len(typeInfo) > 0 && string(typeInfo[0]) == encStructBegin {
 		lastArg := reflect.ValueOf(args[len(args)-1])
 		if lastArg.Kind() == reflect.Ptr {
 			sendFunc = sendFunc.StRet()
 			argOffset = 3 // stretAddr, theReceiver, theSelector (not used now)
-			stretAddr = lastArg.Pointer()
+			stretAddr = unsafe.Pointer(lastArg.Pointer())
 			args = args[:len(args)-1]
 		}
 	}
@@ -100,7 +100,7 @@ func sendMsg(obj Object, sendFunc variadic.Function, selector string, args ...in
 		}
 		switch t := arg.(type) {
 		case Object:
-			intArgs = append(intArgs, t.Pointer())
+			intArgs = append(intArgs, uintptr(t.Pointer()))
 		case Selector:
 			intArgs = append(intArgs, uintptr(selectorWithName(t.Selector())))
 		case uintptr:
@@ -173,11 +173,11 @@ func sendMsg(obj Object, sendFunc variadic.Function, selector string, args ...in
 	if sendFunc.IsStRet() {
 		switch len(intArgs) {
 		case 0:
-			C.GoObjc_MsgSend_Stret0(unsafe.Pointer(stretAddr), unsafe.Pointer(obj.Pointer()), sel)
-			return object{ptr: 0}
+			C.GoObjc_MsgSend_Stret0(stretAddr, obj.Pointer(), sel)
+			return objectPtr(nil)
 		case 1:
-			C.GoObjc_MsgSend_Stret1(unsafe.Pointer(stretAddr), unsafe.Pointer(obj.Pointer()), sel, unsafe.Pointer(intArgs[0]))
-			return object{ptr: 0}
+			C.GoObjc_MsgSend_Stret1(stretAddr, obj.Pointer(), sel, unsafe.Pointer(intArgs[0]))
+			return objectPtr(nil)
 		default:
 			log.Panicf("unsupported arg count for data-structure return call: %v(%d)", sendFunc, len(intArgs))
 		}
@@ -185,11 +185,11 @@ func sendMsg(obj Object, sendFunc variadic.Function, selector string, args ...in
 
 	fc := sendFunc.NewCall()
 	if sendFunc.IsSuper() {
-		superPtr := C.GoObjc_GetObjectSuperClassStruct(unsafe.Pointer(obj.Pointer()))
+		superPtr := C.GoObjc_GetObjectSuperClassStruct(obj.Pointer())
 		defer C.free(superPtr)
 		fc.Words[0] = uintptr(superPtr)
 	} else {
-		fc.Words[0] = obj.Pointer()
+		fc.Words[0] = uintptr(obj.Pointer())
 	}
 	fc.Words[1] = uintptr(sel)
 
@@ -217,13 +217,13 @@ func sendMsg(obj Object, sendFunc variadic.Function, selector string, args ...in
 	if len(typeInfo) > 0 {
 		retEnc := string(typeInfo[0])
 		if retEnc == encFloat {
-			return object{ptr: uintptr(math.Float32bits(fc.CallFloat32()))}
+			return notAnObject{fc.CallFloat32()}
 		} else if retEnc == encDouble {
-			return object{ptr: uintptr(math.Float64bits(fc.CallFloat64()))}
+			return notAnObject{fc.CallFloat64()}
 		}
 	}
 
-	return object{ptr: fc.Call()}
+	return objectPtr(unsafe.Pointer(fc.Call()))
 }
 
 func (obj object) Send(selector string, args ...interface{}) Object {
@@ -232,7 +232,7 @@ func (obj object) Send(selector string, args ...interface{}) Object {
 
 // func (obj object) SendMsgStret(ret uintptr, selector string, args ...interface{}) {
 // 	sel := selectorWithName(selector)
-// 	C.Debug_MsgSend_Stret(unsafe.Pointer(ret), unsafe.Pointer(obj.Pointer()), sel)
+// 	C.Debug_MsgSend_Stret(unsafe.Pointer(ret), obj.Pointer(), sel)
 // }
 
 func (obj object) SendSuper(selector string, args ...interface{}) Object {

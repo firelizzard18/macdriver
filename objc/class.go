@@ -126,7 +126,7 @@ func NewClass(classname string, superclass string) Class {
 	C.GoObjc_ClassAddMethod(ptr, sel, methodCallTarget(), C.CString(typeInfo))
 
 	lazilyRegisterClassInMap(classname)
-	return object{ptr: uintptr(ptr)}
+	return objectPtr(ptr)
 }
 
 func lazilyRegisterClassInMap(className string) {
@@ -211,12 +211,12 @@ func NewClassFromStruct(value interface{}) Class {
 		setters:   setters,
 	}
 
-	return object{ptr: uintptr(ptr)}
+	return objectPtr(ptr)
 }
 
 // Get looks up a class by name.
 func Get(name string) Class {
-	return object{ptr: uintptr(C.GoObjc_GetClassByName(C.CString(name)))}
+	return objectPtr(C.GoObjc_GetClassByName(C.CString(name)))
 }
 
 // deprecated
@@ -230,8 +230,8 @@ func GetClass(name string) Class {
 // object it is sending a message to. This would end in an infinite
 // loop.)
 func getObjectClass(obj Object) Class {
-	classPtr := C.GoObjc_GetObjectClass(unsafe.Pointer(obj.Pointer()))
-	return object{ptr: uintptr(classPtr)}
+	classPtr := C.GoObjc_GetObjectClass(obj.Pointer())
+	return objectPtr(classPtr)
 }
 
 // RegisterClass registers a Class with the Objective-C runtime.
@@ -280,12 +280,12 @@ func (cls object) Swizzle(selectorA, selectorB string) {
 // This is used to implement correct method dispatch for
 // Objective-C classes created from within Go.
 func (obj object) setInternalPointer(value unsafe.Pointer) {
-	C.GoObjc_SetInternal(unsafe.Pointer(obj.Pointer()), unsafe.Pointer(value))
+	C.GoObjc_SetInternal(obj.Pointer(), unsafe.Pointer(value))
 }
 
 // internalPointer returns the object's internal pointer.
 // Must only be called on objects that are known to have
 // an internal pointer set.
 func (obj object) internalPointer() unsafe.Pointer {
-	return C.GoObjc_GetInternal(unsafe.Pointer(obj.Pointer()))
+	return C.GoObjc_GetInternal(obj.Pointer())
 }

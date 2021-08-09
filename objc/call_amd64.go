@@ -39,9 +39,9 @@ type amd64frame struct {
 // correct order.
 type amd64frameFetcher struct {
 	frame  *amd64frame
-	ints   *[6]uintptr
-	floats *[8]uintptr
-	stack  *[10]uintptr
+	ints   *[6]unsafe.Pointer
+	floats *[8]unsafe.Pointer
+	stack  *[10]unsafe.Pointer
 	ioff   int
 	foff   int
 	soff   int
@@ -50,9 +50,9 @@ type amd64frameFetcher struct {
 // frameFetcher returns a new amd64frameFetcher that
 // wraps an existing amd64 frame.
 func frameFetcher(frame *amd64frame) amd64frameFetcher {
-	ints := (*[6]uintptr)(unsafe.Pointer(frame))
-	floats := (*[8]uintptr)(unsafe.Pointer(&frame.xmm0))
-	stack := (*[10]uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(&frame.xmm7)) + 8))
+	ints := (*[6]unsafe.Pointer)(unsafe.Pointer(frame))
+	floats := (*[8]unsafe.Pointer)(unsafe.Pointer(&frame.xmm0))
+	stack := (*[10]unsafe.Pointer)(unsafe.Pointer(uintptr(unsafe.Pointer(&frame.xmm7)) + 8))
 	return amd64frameFetcher{
 		ints:   ints,
 		floats: floats,
@@ -62,29 +62,29 @@ func frameFetcher(frame *amd64frame) amd64frameFetcher {
 
 // Int returns the next integer argument from the amd64frame
 // wrapped by the frame fetcher.
-func (ff *amd64frameFetcher) Int() uintptr {
+func (ff *amd64frameFetcher) IntPtr() unsafe.Pointer {
 	if ff.ioff < len(ff.ints) {
 		val := ff.ints[ff.ioff]
 		ff.ioff++
 		return val
 	}
-	return ff.Stack()
+	return ff.StackPtr()
 }
 
 // Float returns the next floating point argument from the amd64
 // frame wrapped by the frame fetcher.
-func (ff *amd64frameFetcher) Float() uintptr {
+func (ff *amd64frameFetcher) FloatPtr() unsafe.Pointer {
 	if ff.foff < len(ff.floats) {
 		val := ff.floats[ff.foff]
 		ff.foff++
 		return val
 	}
-	return ff.Stack()
+	return ff.StackPtr()
 }
 
 // Stack returns the next stack argument from amd64
 // frame wrapped by the frame fetcher.
-func (ff *amd64frameFetcher) Stack() uintptr {
+func (ff *amd64frameFetcher) StackPtr() unsafe.Pointer {
 	if ff.soff < len(ff.stack) {
 		val := ff.stack[ff.soff]
 		ff.soff++
@@ -92,6 +92,10 @@ func (ff *amd64frameFetcher) Stack() uintptr {
 	}
 	panic("call: argument list exhausted")
 }
+
+func (ff *amd64frameFetcher) Int() uintptr   { return uintptr(ff.IntPtr()) }
+func (ff *amd64frameFetcher) Float() uintptr { return uintptr(ff.FloatPtr()) }
+func (ff *amd64frameFetcher) Stack() uintptr { return uintptr(ff.StackPtr()) }
 
 // methodCallTarget returns a pointer to the entry point
 // that the Objective-C runtime must call to reach an
@@ -134,14 +138,14 @@ func setIBOutletValue(obj reflect.Value, name string, value Object) {
 }
 
 //export goMethodCallEntryPoint
-func goMethodCallEntryPoint(p uintptr) uintptr {
-	frame := (*amd64frame)(unsafe.Pointer(p))
+func goMethodCallEntryPoint(p unsafe.Pointer) uintptr {
+	frame := (*amd64frame)(p)
 	fetcher := frameFetcher(frame)
 
-	obj := object{ptr: fetcher.Int()}
-	sel := stringFromSelector(unsafe.Pointer(fetcher.Int()))
+	obj := objectPtr(fetcher.IntPtr())
+	sel := stringFromSelector(fetcher.IntPtr())
 
-	clsName := object{ptr: getObjectClass(obj).Pointer()}.className()
+	clsName := objectPtr(getObjectClass(obj).Pointer()).className()
 	clsInfo := classMap[clsName]
 	method := clsInfo.MethodForSelector(sel)
 
@@ -174,10 +178,10 @@ func goMethodCallEntryPoint(p uintptr) uintptr {
 
 	// Check if the invoked selector is a setter for IBOutlets.
 	if _, isSetter := clsInfo.setters[sel]; isSetter {
-		valuePtr := fetcher.Int()
+		valuePtr := fetcher.IntPtr()
 		keyName := sel[3:]                    // strip 'set'
 		keyName = keyName[0 : len(keyName)-1] // strip ':'
-		setIBOutletValue(objVal, keyName, object{ptr: valuePtr})
+		setIBOutletValue(objVal, keyName, objectPtr(valuePtr))
 		return 0
 	}
 
@@ -186,17 +190,17 @@ func goMethodCallEntryPoint(p uintptr) uintptr {
 	if sel == "setValue:forKey:" && method == nil {
 		// We only support Object values, so fetching
 		// Ints here is OK.
-		valuePtr := fetcher.Int()
-		keyPtr := fetcher.Int()
+		valuePtr := fetcher.IntPtr()
+		keyPtr := fetcher.IntPtr()
 
 		// We don't export any NSString-based functionality
 		// in package objc, except for the String() method
 		// on object.  It calls the object's decription method,
 		// which for NSStrings returns the string itself (or at
 		// least something that has been good enough for now!).
-		keyName := object{ptr: keyPtr}.String()
+		keyName := objectPtr(keyPtr).String()
 
-		setIBOutletValue(objVal, keyName, object{ptr: valuePtr})
+		setIBOutletValue(objVal, keyName, objectPtr(valuePtr))
 		return 0
 	}
 
@@ -221,10 +225,10 @@ func goMethodCallEntryPoint(p uintptr) uintptr {
 		typ := mt.In(i)
 
 		if typ.Implements(objectInterfaceType) {
-			args = append(args, reflect.ValueOf(object{ptr: fetcher.Int()}))
+			args = append(args, reflect.ValueOf(objectPtr(fetcher.IntPtr())))
 			continue
 		} else if typ.Implements(selectorInterfaceType) {
-			sel := selector(stringFromSelector(unsafe.Pointer(fetcher.Int())))
+			sel := selector(stringFromSelector(fetcher.IntPtr()))
 			args = append(args, reflect.ValueOf(sel))
 			continue
 		}
@@ -262,8 +266,7 @@ func goMethodCallEntryPoint(p uintptr) uintptr {
 			args = append(args, reflect.ValueOf(val))
 
 		case reflect.Ptr:
-			ptrAddr := unsafe.Pointer(uintptr(fetcher.Int()))
-			args = append(args, reflect.NewAt(typ.Elem(), ptrAddr))
+			args = append(args, reflect.NewAt(typ.Elem(), fetcher.IntPtr()))
 
 		default:
 			panic("call: unhandled arg")
@@ -300,7 +303,7 @@ func goMethodCallEntryPoint(p uintptr) uintptr {
 			return 1
 		case reflect.Interface:
 			if obj, ok := val.Interface().(Object); ok {
-				return obj.Pointer()
+				return uintptr(obj.Pointer())
 			}
 			panic("call: bad interface return value")
 		default:

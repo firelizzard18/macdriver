@@ -5,6 +5,7 @@
 // Package objc implements access to the Objective-C runtime from Go
 package objc
 
+// #import <objc/objc.h>
 import "C"
 
 import (
@@ -55,7 +56,7 @@ type Object interface {
 	String() string
 
 	// Pointer returns the in-memory address of the object.
-	Pointer() uintptr
+	Pointer() unsafe.Pointer
 
 	// Uint returns the value of the object as an uint64.
 	Uint() uint64
@@ -81,19 +82,27 @@ type Object interface {
 // Besides implementing the Object interface, object also implements
 // the Class interface.
 type object struct {
-	ptr uintptr
+	ptr C.id
 }
 
-func ObjectPtr(ptr uintptr) Object {
-	return object{ptr: ptr}
+func objectPtr(ptr unsafe.Pointer) object {
+	return object{ptr: C.id(ptr)}
+}
+
+func ObjectPtr(ptr unsafe.Pointer) Object {
+	return objectPtr(ptr)
+}
+
+func (obj object) uintptr() uintptr {
+	return uintptr(unsafe.Pointer(obj.ptr))
 }
 
 // Pointer returns the object as a uintptr.
 //
 // Using package unsafe, this uintptr can further
 // be converted to an unsafe.Pointer.
-func (obj object) Pointer() uintptr {
-	return obj.ptr
+func (obj object) Pointer() unsafe.Pointer {
+	return unsafe.Pointer(obj.ptr)
 }
 
 func (obj object) Class() Class {
@@ -143,11 +152,11 @@ func (obj object) Set(setter string, args ...interface{}) {
 }
 
 func (obj object) CString() string {
-	if obj.Pointer() == 0 {
+	if obj.Pointer() == nil {
 		return ""
 	}
 
-	return C.GoString((*C.char)(unsafe.Pointer(obj.Pointer())))
+	return C.GoString((*C.char)(obj.Pointer()))
 }
 
 func (obj object) String() string {
@@ -157,7 +166,7 @@ func (obj object) String() string {
 	defer pool.Release()
 
 	bytes := obj.Send("description").Send("UTF8String")
-	if bytes.Pointer() == 0 {
+	if bytes.Pointer() == nil {
 		return "(nil)"
 	}
 

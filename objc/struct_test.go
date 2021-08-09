@@ -36,7 +36,7 @@ func TestStructPassing(t *testing.T) {
 	}
 
 	obj := GetClass("NSValue").Send("valueWithRect:", rect)
-	if obj.Pointer() == 0 {
+	if obj.Pointer() == nil {
 		t.Fatalf("unable to create NSValue, got nil ptr")
 	}
 	want := "NSRect: {{0, 0}, {500, 500}}"
